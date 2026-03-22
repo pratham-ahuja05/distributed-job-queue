@@ -9,6 +9,14 @@ This project implements a distributed background job processing system that ensu
 
 ---
 
+## 🧠 System Architecture
+
+<p align="center">
+  <img src="system_architecture.png" width="80%"/>
+</p>
+
+---
+
 ## 📸 Screenshots
 
 <p align="center">
@@ -33,8 +41,9 @@ This project implements a distributed background job processing system that ensu
 api-service/ – exposes REST endpoints to submit and manage jobs  
 worker-service/ – distributed worker services that process queued jobs  
 .gitignore – Git ignore rules for build and environment files  
-1.png – screenshot of system UI / workflow  
-2.png – additional screenshot of processing or monitoring  
+1.png – screenshot of system behavior or logs  
+2.png – additional system workflow screenshot  
+system_architecture.png – high-level architecture diagram of the system  
 README.md – project documentation  
 docker-compose.yml – orchestrates all services including DB, Redis, API, and workers  
 
