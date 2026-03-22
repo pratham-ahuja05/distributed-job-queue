@@ -9,6 +9,15 @@ This project implements a distributed background job processing system that ensu
 
 ---
 
+## 📸 Screenshots
+
+<p align="center">
+  <img src="1.png" width="45%"/>
+  <img src="2.png" width="45%"/>
+</p>
+
+---
+
 ## ✨ Features
 - multi-tier priority queue with starvation-free scheduling  
 - exactly-once job execution using pessimistic locking  
@@ -21,13 +30,13 @@ This project implements a distributed background job processing system that ensu
 ---
 
 ## 🗂️ Repository Structure
-api/ – exposes REST endpoints to submit and manage jobs  
-worker/ – distributed worker services that process queued jobs  
-monitor/ – service responsible for detecting stuck jobs and re-queueing  
-config/ – configuration files for Redis, PostgreSQL, and application properties  
+api-service/ – exposes REST endpoints to submit and manage jobs  
+worker-service/ – distributed worker services that process queued jobs  
+.gitignore – Git ignore rules for build and environment files  
+1.png – screenshot of system UI / workflow  
+2.png – additional screenshot of processing or monitoring  
+README.md – project documentation  
 docker-compose.yml – orchestrates all services including DB, Redis, API, and workers  
-pom.xml – Maven configuration and dependency management  
-mvnw / mvnw.cmd – Maven wrapper scripts for building the project  
 
 ---
 
@@ -44,7 +53,7 @@ mvnw / mvnw.cmd – Maven wrapper scripts for building the project
 ---
 
 ## 📦 Technologies Used
-Java 17, Spring Boot 3.4, Spring Data JPA, PostgreSQL 15, Redis 7, Docker, Docker Compose, Maven
+Java 17, Spring Boot, Spring Data JPA, PostgreSQL, Redis, Docker, Docker Compose, Maven
 
 ---
 
