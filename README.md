@@ -58,7 +58,7 @@ Java 17, Spring Boot 3.4, Spring Data JPA, PostgreSQL 15, Redis 7, Docker, Docke
 
 ---
 
-## 📊 Outputs (If applicable)
+## 📊 Outputs 
 - job_status table – tracks job lifecycle and processing state
 - dead_letter_queue – stores permanently failed jobs for inspection
 - application logs – provide execution trace and debugging insights
