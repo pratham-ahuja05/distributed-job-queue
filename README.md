@@ -27,13 +27,13 @@ This project implements a distributed background job processing system that ensu
 ---
 
 ## ✨ Features
-- multi-tier priority queue with starvation-free scheduling  
-- exactly-once job execution using pessimistic locking  
-- heartbeat-based failure detection and automatic recovery  
-- exponential backoff retry strategy for resilient processing  
-- dead letter queue (DLQ) for persistent failures  
-- horizontally scalable worker architecture  
-- dockerized environment for consistent deployment  
+- Multi-tier priority queue with starvation-free scheduling  
+- Exactly-once job execution using pessimistic locking  
+- Heartbeat-based failure detection and automatic recovery  
+- Exponential backoff retry strategy for resilient processing  
+- Dead letter queue (DLQ) for persistent failures  
+- Horizontally scalable worker architecture  
+- Dockerized environment for consistent deployment  
 
 ---
 
@@ -84,11 +84,11 @@ Java 17, Spring Boot, Spring Data JPA, PostgreSQL, Redis, Docker, Docker Compose
 ---
 
 ## 🤝 Contributing
-- add support for new job types with custom processing logic  
-- extend retry strategies (e.g., jitter-based backoff)  
-- implement job batching for improved throughput  
-- introduce priority-based worker pools for dedicated processing  
-- enhance monitoring service with configurable recovery strategies  
+- Add support for new job types with custom processing logic  
+- Extend retry strategies (e.g., jitter-based backoff)  
+- Implement job batching for improved throughput  
+- Introduce priority-based worker pools for dedicated processing  
+- Enhance monitoring service with configurable recovery strategies  
 
 ---
 
@@ -107,8 +107,8 @@ Built using modern distributed system patterns inspired by real-world job queue 
 ---
 
 ## 🔧 Things to Improve (Roadmap)
-- add a web-based UI dashboard for job monitoring, retries, and system health  
-- implement production-ready deployment configurations (Kubernetes, Helm charts)  
-- integrate observability tools (Prometheus, Grafana, distributed tracing)  
-- introduce auto-scaling for workers based on queue load  
-- add authentication and rate limiting for API endpoints  
+- Add a web-based UI dashboard for job monitoring, retries, and system health  
+- Implement production-ready deployment configurations (Kubernetes, Helm charts)  
+- Integrate observability tools (Prometheus, Grafana, distributed tracing)  
+- Introduce auto-scaling for workers based on queue load  
+
