@@ -1,0 +1,17 @@
+# Build folders
+target/
+*.jar
+*.war
+
+# IntelliJ
+.idea/
+*.iml
+out/
+
+# Docker data (if any)
+pgdata/
+redisdata/
+
+# OS files
+.DS_Store
+Thumbs.db

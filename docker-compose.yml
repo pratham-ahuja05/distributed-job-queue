@@ -1,0 +1,59 @@
+services:
+  # --- INFRASTRUCTURE (Postgres & Redis) ---
+  postgres:
+    image: postgres:15
+    container_name: jobqueue-postgres
+    environment:
+      - POSTGRES_DB=jobqueue
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password # Ensure this matches the apps below!
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7
+    container_name: jobqueue-redis
+    ports:
+      - "6379:6379"
+
+  # --- YOUR APPS (API & WORKERS) ---
+  api-service:
+    build: ./api-service
+    container_name: api-service
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/jobqueue
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=password
+      - SPRING_JPA_DATABASE_PLATFORM=org.hibernate.dialect.PostgreSQLDialect
+      - SPRING_DATA_REDIS_HOST=redis
+    depends_on:
+      - postgres
+      - redis
+
+  worker-1:
+    build: ./worker-service
+    container_name: worker-1
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/jobqueue
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=password
+      - SPRING_JPA_DATABASE_PLATFORM=org.hibernate.dialect.PostgreSQLDialect
+      - SPRING_DATA_REDIS_HOST=redis
+    depends_on:
+      - postgres
+      - redis
+
+  worker-2:
+    build: ./worker-service
+    container_name: worker-2
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/jobqueue
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=password
+      - SPRING_JPA_DATABASE_PLATFORM=org.hibernate.dialect.PostgreSQLDialect
+      - SPRING_DATA_REDIS_HOST=redis
+    depends_on:
+      - postgres
+      - redis
