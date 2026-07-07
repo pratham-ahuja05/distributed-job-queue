@@ -6,7 +6,7 @@ services:
     environment:
       - POSTGRES_DB=jobqueue
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password # Ensure this matches the apps below!
+      - POSTGRES_PASSWORD=******
     ports:
       - "5432:5432"
 
@@ -38,7 +38,7 @@ services:
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/jobqueue
       - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=password
+      - SPRING_DATASOURCE_PASSWORD=**********
       - SPRING_JPA_DATABASE_PLATFORM=org.hibernate.dialect.PostgreSQLDialect
       - SPRING_DATA_REDIS_HOST=redis
     depends_on:
@@ -51,7 +51,7 @@ services:
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/jobqueue
       - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=password
+      - SPRING_DATASOURCE_PASSWORD=*********
       - SPRING_JPA_DATABASE_PLATFORM=org.hibernate.dialect.PostgreSQLDialect
       - SPRING_DATA_REDIS_HOST=redis
     depends_on:
