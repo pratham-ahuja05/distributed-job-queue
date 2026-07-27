@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Build and test api-service
+        run: mvn -B clean verify -f api-service/pom.xml
+
+      - name: Build and test worker-service
+        run: mvn -B clean verify -f worker-service/pom.xml
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            api-service/target/surefire-reports/**
+            api-service/target/failsafe-reports/**
+            worker-service/target/surefire-reports/**
+            worker-service/target/failsafe-reports/**
+
+      - name: Upload JaCoCo reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-reports
+          path: |
+            api-service/target/site/jacoco/**
+            api-service/target/jacoco.exec
+            worker-service/target/site/jacoco/**
+            worker-service/target/jacoco.exec
