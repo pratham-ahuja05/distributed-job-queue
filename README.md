@@ -1,120 +1,113 @@
 # High-Throughput Distributed Job Queue
 
-A horizontally-scalable, priority-aware distributed job queue built with Java + Spring Boot that provides reliable background job processing with retries, dead-lettering, and failure recovery.
+🔥 A fault-tolerant distributed job processing system designed for high-volume asynchronous workloads with strict priority handling.
 
-### Stack
-- **Language(s):** Java 17 (primary)
-- **Framework / runtime:** Spring Boot (Maven)
-- **Notable libraries:** Spring Data JPA, Spring Data Redis, Lombok, H2/Postgres driver (Postgres in production)
+---
 
-## What this is
-A fault-tolerant distributed job processing system that accepts jobs via a REST API (api-service), stores job metadata in PostgreSQL, enqueues jobs in priority Redis queues, and processes them with a pool of workers (worker-service). It provides exactly-once processing semantics via DB locking, exponential-backoff retries, and a Dead Letter Queue (DLQ) for persistent failures.
+## 📖 Overview
+This project implements a distributed background job processing system that ensures reliability under heavy load and worker failures. It solves common issues like task duplication, worker crashes, [...]
 
-## How it's organized
-Top-level tree (important entries only)
-```
-api-service/        # REST API to submit/manage jobs (com.pratham.apiservice)
-worker-service/     # Worker runtime and recovery/retry logic (com.pratham.workerservice)
-docker-compose.yml  # Local orchestration (Postgres, Redis, API, workers)
-system_architecture.svg  # simplified diagram (new)
-README.md
-```
+---
 
-How it fits together
-- Clients call the API (api-service) to submit jobs. The API persists job metadata to PostgreSQL and pushes the job into a Redis queue selected by priority.
-- Worker instances (worker-service) poll Redis queues using a starvation-free selection strategy, claim a job, acquire a DB lock (SELECT FOR UPDATE) on the job row to ensure exclusive processing, then execute the job logic.
-- On failure, workers increment retry counters and reschedule jobs using exponential-backoff; excessive failures move jobs to the DLQ. A Recovery/Monitor service periodically detects stuck jobs and re-queues them.
+## 🧠 System Architecture
 
-## Simplified architecture diagram
-Use the SVG image included in the repository: `system_architecture.svg`. A Mermaid source is shown below for quick editing.
+<p align="center">
+  <img src="system_architecture.png" width="80%"/>
+</p>
 
-![Simplified architecture diagram](system_architecture.svg)
+---
 
-```mermaid
-flowchart LR
-  Client[Client / Producer] --&gt;|POST /jobs| API[API Service\n(api-service)]
-  API --&gt;|persist| Postgres[(PostgreSQL)]
-  API --&gt;|enqueue priority| Redis[Redis\n(priority queues)]
-  subgraph Workers [Worker Pool (worker-service)]
-    W1(Worker)
-    W2(Worker)
-    Wn(Worker)
-  end
-  Redis --&gt;|poll| Workers
-  Workers --&gt;|SELECT FOR UPDATE| Postgres
-  Workers --&gt;|on success| Postgres
-  Workers --&gt;|on failure| RetryService[Retry Schedule]
-  RetryService --&gt; Redis
-  Workers --&gt;|exceed retries| DLQ[Dead Letter Queue]
-  Monitor[Recovery Service] --&gt;|detect stuck / requeue| Redis
-  Monitor --&gt;|fix inconsistent state| Postgres
-```
-
-## Screenshots
+## 📸 Screenshots
 
 <p align="center">
   <img src="1.png" width="45%"/>
   <img src="2.png" width="45%"/>
 </p>
 
-## Key files & responsibilities
-- api-service/src/main/java/com/pratham/apiservice/controller/JobController.java — job submission and management endpoints
-- api-service/src/main/java/com/pratham/apiservice/service/QueueService.java — enqueues jobs into Redis priority queues
-- api-service/src/main/java/com/pratham/apiservice/repository/JobRepository.java — JPA repository for job metadata
-- worker-service/src/main/java/com/pratham/workerservice/service/WorkerService.java — worker lifecycle: poll, lock, process
-- worker-service/src/main/java/com/pratham/workerservice/service/RetryService.java — schedules retries and backoff
-- worker-service/src/main/java/com/pratham/workerservice/service/RecoveryService.java — detects and recovers stuck jobs
-- worker-service/src/main/java/com/pratham/workerservice/service/DLQService.java — moves jobs to dead-letter store
+---
 
-## How to run it (quickstart)
-Prereqs: Docker & Docker Compose (or Java 17 + Maven if running services locally)
+## ✨ Features
+- Multi-tier priority queue with starvation-free scheduling  
+- Exactly-once job execution using pessimistic locking  
+- Heartbeat-based failure detection and automatic recovery  
+- Exponential backoff retry strategy for resilient processing  
+- Dead letter queue (DLQ) for persistent failures  
+- Horizontally scalable worker architecture  
+- Dockerized environment for consistent deployment
 
-Run all services with Docker Compose:
-```bash
-git clone https://github.com/pratham-ahuja05/distributed-job-queue.git
-cd distributed-job-queue
-docker-compose up --build
-```
+---
 
-Run services individually (dev):
-```bash
-# API service
-cd api-service
-./mvnw spring-boot:run
+## 🗂️ Repository Structure
+api-service/ – exposes REST endpoints to submit and manage jobs  
+worker-service/ – distributed worker services that process queued jobs  
+.gitignore – Git ignore rules for build and environment files  
+1.png – screenshot of system behavior or logs  
+2.png – additional system workflow screenshot  
+system_architecture.png – high-level architecture diagram of the system  
+README.md – project documentation  
+docker-compose.yml – orchestrates all services including DB, Redis, API, and workers
 
-# Worker service (in a separate shell or container)
-cd worker-service
-./mvnw spring-boot:run
-```
+---
 
-Main env vars (examples; see src/main/resources/application.properties for defaults)
-- SPRING_DATASOURCE_URL (jdbc:postgresql://<host>:5432/<db>)
-- SPRING_DATASOURCE_USERNAME
-- SPRING_DATASOURCE_PASSWORD
-- SPRING_REDIS_HOST
-- SPRING_REDIS_PORT
-- JOB_RETRY_MAX, JOB_BACKOFF_BASE, JOB_TIMEOUT (implementation-specific names)
+## 🚀 How It Works
+1. A client submits a job via the API with a type, payload, and priority.  
+2. The API pushes the job into a Redis queue corresponding to its priority level.  
+3. Worker instances continuously poll Redis using a starvation-free strategy.  
+4. A worker retrieves a job and locks its database record using `SELECT FOR UPDATE`.  
+5. The job is processed and its status is updated in PostgreSQL.  
+6. If processing fails, the job is retried using exponential backoff.  
+7. If retries exceed limits, the job is moved to the Dead Letter Queue.  
+8. A monitor service detects stuck jobs and re-queues them automatically.
 
-## Features (high level)
-- Priority queues with starvation-free polling
-- Exclusive job claims using DB pessimistic locking (SELECT FOR UPDATE)
-- Exponential-backoff retries and DLQ for persistent failures
-- Health checks and a Recovery service that re-queues stuck jobs
-- Dockerized for easy local orchestration
+---
 
-## Roadmap / Suggested improvements
-- Add metrics and tracing (Prometheus + Grafana + OpenTelemetry) — expose per-queue and per-job metrics
-- Add idempotency keys at API level to avoid duplicate submissions
-- Add a lightweight web UI for job inspection (list / retry / move from DLQ)
-- Replace in-memory Redis queues with a persistent queue or stream (Redis Streams / Kafka) if durability under extremely high load is required
-- Add automated worker scaling (Kubernetes + HPA) driven by queue length
+## 📦 Technologies Used
+Java 17, Spring Boot, Spring Data JPA, PostgreSQL, Redis, Docker, Docker Compose, Maven
 
-## Troubleshooting checklist
-- If jobs are not processed: confirm Redis host/port and check worker logs.
-- If duplicates appear: inspect JobRepository handling and idempotency at submission.
-- If jobs are stuck: check RecoveryService logs and system clocks across containers.
+---
 
-## Try asking
-- "Where in api-service does priority selection happen? (I see QueueService.java — can we support more than 3 priorities?)"
-- "How does WorkerService implement SELECT FOR UPDATE? (refer to worker-service/src/main/java/.../WorkerService.java)"
-- "Can we replace system_architecture.png with the Mermaid diagram and add a small web UI mock-up for the dashboard?"
+## 🔧 Configuration Options
+- `priority` – defines job importance (HIGH, MEDIUM, LOW)  
+- `retry.count` – number of retry attempts before failure  
+- `retry.backoff` – exponential delay factor (2^n)  
+- `job.timeout` – threshold to detect stuck jobs  
+- `spring.datasource.*` – database connection settings  
+- `spring.redis.*` – Redis connection configuration
+
+---
+
+## 📊 Outputs 
+- job_status table – tracks job lifecycle and processing state  
+- dead_letter_queue – stores permanently failed jobs for inspection  
+- application logs – provide execution trace and debugging insights
+
+---
+
+## 🤝 Contributing
+- Add support for new job types with custom processing logic  
+- Extend retry strategies (e.g., jitter-based backoff)  
+- Implement job batching for improved throughput  
+- Introduce priority-based worker pools for dedicated processing  
+- Enhance monitoring service with configurable recovery strategies
+
+---
+
+## 📝 Known Limitations
+- Redis-based queues are in-memory and may require persistence tuning  
+- No built-in observability (metrics/tracing) yet  
+- Scaling depends on manual worker provisioning  
+- Lack of request-level idempotency may allow duplicate job submissions  
+- Recovery timing depends on accurate system clocks across containers
+
+---
+
+## ❤️ Acknowledgements
+Built using modern distributed system patterns inspired by real-world job queue architectures and Spring Boot best practices.
+
+---
+
+## 🔧 Things to Improve (Roadmap)
+- Add a web-based UI dashboard for job monitoring, retries, and system health  
+- Implement production-ready deployment configurations (Kubernetes, Helm charts)  
+- Integrate observability tools (Prometheus, Grafana, distributed tracing)  
+- Introduce auto-scaling for workers based on queue load
