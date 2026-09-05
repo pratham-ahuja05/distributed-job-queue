@@ -1,6 +1,5 @@
 # High-Throughput Distributed Job Queue
 
-One-line summary
 A horizontally-scalable, priority-aware distributed job queue built with Java + Spring Boot that provides reliable background job processing with retries, dead-lettering, and failure recovery.
 
 ### Stack
