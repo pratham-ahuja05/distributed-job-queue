@@ -3,7 +3,9 @@ package com.pratham.workerservice;
 import com.pratham.workerservice.entity.Job;
 import com.pratham.workerservice.enums.JobStatus;
 import com.pratham.workerservice.repository.JobRepository;
+import com.pratham.workerservice.service.QueueSelectionStrategy;
 import com.pratham.workerservice.service.WorkerService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -38,6 +40,16 @@ class WorkerServiceApplicationTests {
 	@InjectMocks
 	private WorkerService workerService;
 
+	private static final String HIGH_QUEUE = "high_priority_queue";
+	private static final String MEDIUM_QUEUE = "medium_priority_queue";
+	private static final String LOW_QUEUE = "low_priority_queue";
+
+	@BeforeEach
+	void setUp() {
+		ReflectionTestUtils.setField(workerService, "queueSelectionStrategy", fixedSelection(HIGH_QUEUE));
+		ReflectionTestUtils.setField(workerService, "emptySelectionRetries", 0);
+	}
+
 	private Job buildJob(long id, JobStatus status, int retryCount, int maxRetries) {
 		Job job = new Job();
 		job.setId(id);
@@ -53,7 +65,7 @@ class WorkerServiceApplicationTests {
 		Job job = buildJob(1L, JobStatus.QUEUED, 0, 3);
 
 		when(redisTemplate.opsForList()).thenReturn(listOperations);
-		when(listOperations.rightPopAndLeftPush("high_priority_queue", "processing_queue")).thenReturn("1");
+		when(listOperations.rightPopAndLeftPush(HIGH_QUEUE, "processing_queue")).thenReturn("1");
 		when(jobRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(job));
 		when(jobRepository.save(any(Job.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -93,5 +105,30 @@ class WorkerServiceApplicationTests {
 		verify(jobRepository).save(job);
 		verify(listOperations).leftPush("dead_letter_queue", "11");
 		verify(listOperations).remove("processing_queue", 1, "11");
+	}
+
+	private QueueSelectionStrategy fixedSelection(String queueName) {
+		return new QueueSelectionStrategy() {
+			@Override
+			public String selectQueue() {
+				return queueName;
+			}
+
+			@Override
+			public int queueCount() {
+				return 3;
+			}
+
+			@Override
+			public String queueAt(int index) {
+				if (index == 0) {
+					return HIGH_QUEUE;
+				}
+				if (index == 1) {
+					return MEDIUM_QUEUE;
+				}
+				return LOW_QUEUE;
+			}
+		};
 	}
 }

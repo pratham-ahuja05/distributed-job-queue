@@ -52,7 +52,7 @@ docker-compose.yml – orchestrates all services including DB, Redis, API, and w
 ## 🚀 How It Works
 1. A client submits a job via the API with a type, payload, and priority.  
 2. The API pushes the job into a Redis queue corresponding to its priority level.  
-3. Worker instances continuously poll Redis using a starvation-free strategy.  
+3. Worker instances continuously poll Redis using weighted probabilistic priority polling to reduce starvation.  
 4. A worker retrieves a job and locks its database record using `SELECT FOR UPDATE`.  
 5. The job is processed and its status is updated in PostgreSQL.  
 6. If processing fails, the job is retried using exponential backoff.  
@@ -73,6 +73,8 @@ Java 17, Spring Boot, Spring Data JPA, PostgreSQL, Redis, Docker, Docker Compose
 - `job.timeout` – threshold to detect stuck jobs  
 - `spring.datasource.*` – database connection settings  
 - `spring.redis.*` – Redis connection configuration
+- `worker.queue.weights.high|medium|low` – weighted polling preference for each priority queue (default `70/20/10`)  
+- `worker.queue.selection.empty-retries` – bounded weighted re-selection attempts before fallback queue scan (default `3`)
 
 ---
 
