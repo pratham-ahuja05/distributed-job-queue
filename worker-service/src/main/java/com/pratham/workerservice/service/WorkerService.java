@@ -3,12 +3,15 @@ package com.pratham.workerservice.service;
 import com.pratham.workerservice.entity.Job;
 import com.pratham.workerservice.enums.JobStatus;
 import com.pratham.workerservice.repository.JobRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.LongAdder;
 
 @Service
 public class WorkerService {
@@ -18,9 +21,33 @@ public class WorkerService {
     private static final String LOW = "low_priority_queue";
     private static final String PROCESSING_QUEUE = "processing_queue";
     private static final String DLQ = "dead_letter_queue";
+    private static final int DEFAULT_HIGH_WEIGHT = 70;
+    private static final int DEFAULT_MEDIUM_WEIGHT = 20;
+    private static final int DEFAULT_LOW_WEIGHT = 10;
+    private static final int DEFAULT_EMPTY_SELECTION_RETRIES = 3;
+    private static final String[] PRIORITY_QUEUES = {HIGH, MEDIUM, LOW};
 
     private final RedisTemplate<String, String> redisTemplate;
     private final JobRepository jobRepository;
+    private final AtomicInteger fallbackStartIndex = new AtomicInteger(0);
+    private final LongAdder emptyPollCount = new LongAdder();
+    private final LongAdder highDequeuedCount = new LongAdder();
+    private final LongAdder mediumDequeuedCount = new LongAdder();
+    private final LongAdder lowDequeuedCount = new LongAdder();
+
+    @Value("${worker.queue.weights.high:70}")
+    private int highQueueWeight = DEFAULT_HIGH_WEIGHT;
+
+    @Value("${worker.queue.weights.medium:20}")
+    private int mediumQueueWeight = DEFAULT_MEDIUM_WEIGHT;
+
+    @Value("${worker.queue.weights.low:10}")
+    private int lowQueueWeight = DEFAULT_LOW_WEIGHT;
+
+    @Value("${worker.queue.selection.empty-retries:3}")
+    private int emptySelectionRetries = DEFAULT_EMPTY_SELECTION_RETRIES;
+
+    private volatile QueueSelectionStrategy queueSelectionStrategy;
 
     public WorkerService(RedisTemplate<String, String> redisTemplate, JobRepository jobRepository) {
         this.redisTemplate = redisTemplate;
@@ -100,13 +127,72 @@ public class WorkerService {
         redisTemplate.opsForList().remove(PROCESSING_QUEUE, 1, jobId);
     }
 
-    private String fetchFromPriorityQueues() {
-        String jobId = redisTemplate.opsForList().rightPopAndLeftPush(HIGH, PROCESSING_QUEUE);
-        if (jobId != null) return jobId;
+    String fetchFromPriorityQueues() {
+        QueueSelectionStrategy selectionStrategy = getQueueSelectionStrategy();
 
-        jobId = redisTemplate.opsForList().rightPopAndLeftPush(MEDIUM, PROCESSING_QUEUE);
-        if (jobId != null) return jobId;
+        int boundedRetries = Math.max(0, emptySelectionRetries);
+        for (int attempt = 0; attempt <= boundedRetries; attempt++) {
+            String selectedQueue = selectionStrategy.selectQueue();
+            String jobId = redisTemplate.opsForList().rightPopAndLeftPush(selectedQueue, PROCESSING_QUEUE);
+            if (jobId != null) {
+                recordDequeue(selectedQueue);
+                return jobId;
+            }
+        }
 
-        return redisTemplate.opsForList().rightPopAndLeftPush(LOW, PROCESSING_QUEUE);
+        int queueCount = selectionStrategy.queueCount();
+        int startIndex = Math.floorMod(fallbackStartIndex.getAndIncrement(), queueCount);
+        for (int i = 0; i < queueCount; i++) {
+            String queueName = selectionStrategy.queueAt((startIndex + i) % queueCount);
+            String jobId = redisTemplate.opsForList().rightPopAndLeftPush(queueName, PROCESSING_QUEUE);
+            if (jobId != null) {
+                recordDequeue(queueName);
+                return jobId;
+            }
+        }
+
+        emptyPollCount.increment();
+        long emptyPolls = emptyPollCount.sum();
+        if (emptyPolls % 50 == 0) {
+            System.out.println("Worker empty polls: " + emptyPolls
+                    + " | dequeues high=" + highDequeuedCount.sum()
+                    + ", medium=" + mediumDequeuedCount.sum()
+                    + ", low=" + lowDequeuedCount.sum());
+        }
+        return null;
+    }
+
+    private QueueSelectionStrategy getQueueSelectionStrategy() {
+        QueueSelectionStrategy current = queueSelectionStrategy;
+        if (current != null) {
+            return current;
+        }
+        synchronized (this) {
+            if (queueSelectionStrategy == null) {
+                try {
+                    queueSelectionStrategy = new WeightedQueueSelector(
+                            PRIORITY_QUEUES,
+                            new int[]{highQueueWeight, mediumQueueWeight, lowQueueWeight}
+                    );
+                } catch (IllegalArgumentException e) {
+                    System.out.println("Invalid worker queue weights configured. Falling back to defaults. " + e.getMessage());
+                    queueSelectionStrategy = new WeightedQueueSelector(
+                            PRIORITY_QUEUES,
+                            new int[]{DEFAULT_HIGH_WEIGHT, DEFAULT_MEDIUM_WEIGHT, DEFAULT_LOW_WEIGHT}
+                    );
+                }
+            }
+            return queueSelectionStrategy;
+        }
+    }
+
+    private void recordDequeue(String queueName) {
+        if (HIGH.equals(queueName)) {
+            highDequeuedCount.increment();
+        } else if (MEDIUM.equals(queueName)) {
+            mediumDequeuedCount.increment();
+        } else if (LOW.equals(queueName)) {
+            lowDequeuedCount.increment();
+        }
     }
 }
