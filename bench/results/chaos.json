@@ -1,0 +1,40 @@
+{
+  "run": "chaos-3",
+  "submitted": 4000,
+  "rowsFound": 4000,
+  "succeeded": 4000,
+  "deadLettered": 0,
+  "stillPending": 0,
+  "lost": 0,
+  "killsDelivered": 4,
+  "jobsInFlightKilled": 15,
+  "jobsRecovered": 16,
+  "reExecutions": 16,
+  "wallSeconds": 101.9,
+  "kills": [
+    {
+      "atS": 21,
+      "container": "distributed-job-queue-worker-1",
+      "jobsInFlightKilled": 4,
+      "pendingAtKill": 3010
+    },
+    {
+      "atS": 42,
+      "container": "distributed-job-queue-worker-2",
+      "jobsInFlightKilled": 4,
+      "pendingAtKill": 2211
+    },
+    {
+      "atS": 62,
+      "container": "distributed-job-queue-worker-2",
+      "jobsInFlightKilled": 3,
+      "pendingAtKill": 1453
+    },
+    {
+      "atS": 83,
+      "container": "distributed-job-queue-worker-2",
+      "jobsInFlightKilled": 4,
+      "pendingAtKill": 688
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+replicas=1 threads=4 {
+  "run": "scale-1",
+  "jobs": 1500,
+  "succeeded": 1500,
+  "deadLettered": 0,
+  "dlqRatePct": 0,
+  "throughputPerSec": 63.8,
+  "wallSeconds": 23.53,
+  "p50LatencyMs": 11817.4,
+  "p95LatencyMs": 22355.5,
+  "p99LatencyMs": 23260.7,
+  "p50QueueWaitMs": 11765.4,
+  "p95QueueWaitMs": 22301.6,
+  "avgAttempts": 1,
+  "reExecutions": 0,
+  "recovered": 0,
+  "config": {
+    "durationMs": 50,
+    "failRate": 0,
+    "maxRetries": 3,
+    "rate": null
+  }
+}
+replicas=2 threads=8 {
+  "run": "scale-2",
+  "jobs": 3000,
+  "succeeded": 3000,
+  "deadLettered": 0,
+  "dlqRatePct": 0,
+  "throughputPerSec": 129.7,
+  "wallSeconds": 23.13,
+  "p50LatencyMs": 11752.1,
+  "p95LatencyMs": 21931.1,
+  "p99LatencyMs": 22842.4,
+  "p50QueueWaitMs": 11699.3,
+  "p95QueueWaitMs": 21870.2,
+  "avgAttempts": 1,
+  "reExecutions": 0,
+  "recovered": 0,
+  "config": {
+    "durationMs": 50,
+    "failRate": 0,
+    "maxRetries": 3,
+    "rate": null
+  }
+}
+replicas=4 threads=16 {
+  "run": "scale-4",
+  "jobs": 6000,
+  "succeeded": 6000,
+  "deadLettered": 0,
+  "dlqRatePct": 0,
+  "throughputPerSec": 260.9,
+  "wallSeconds": 22.99,
+  "p50LatencyMs": 11360.8,
+  "p95LatencyMs": 21573.2,
+  "p99LatencyMs": 22561.2,
+  "p50QueueWaitMs": 11297.9,
+  "p95QueueWaitMs": 21507.3,
+  "avgAttempts": 1,
+  "reExecutions": 0,
+  "recovered": 0,
+  "config": {
+    "durationMs": 50,
+    "failRate": 0,
+    "maxRetries": 3,
+    "rate": null
+  }
+}

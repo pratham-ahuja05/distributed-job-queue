@@ -1,0 +1,13 @@
+# Public demo overrides:  docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+services:
+  api-service:
+    environment:
+      APP_RATE_LIMIT_PER10S: "30"
+      APP_MAX_BATCH_SIZE: "300"
+      APP_MAX_BACKLOG: "5000"
+      APP_RETENTION_MINUTES: "60"
+      APP_CHAOS_COOLDOWN_SECONDS: "20"
+  prometheus:
+    ports: !reset []
+  dashboard:
+    ports: !reset ["80:80"]

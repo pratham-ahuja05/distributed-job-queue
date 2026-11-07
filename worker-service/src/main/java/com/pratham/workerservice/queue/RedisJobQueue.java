@@ -3,6 +3,8 @@ package com.pratham.workerservice.queue;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.redis.core.Cursor;
+import org.springframework.data.redis.core.RedisOperations;
+import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -65,10 +67,6 @@ public class RedisJobQueue {
         redis.opsForList().leftPush(QueueKeys.queueFor(priority), Long.toString(jobId));
     }
 
-    public void pushDeadLetter(long jobId) {
-        redis.opsForList().leftPush(QueueKeys.DLQ, Long.toString(jobId));
-    }
-
     public long totalQueued() {
         long total = 0;
         for (String q : QueueKeys.BY_PRIORITY) {
@@ -88,12 +86,48 @@ public class RedisJobQueue {
         }
     }
 
+    /** Event to publish (and optionally a DLQ push) as part of {@link #complete}. */
+    public record Outcome(String eventType, Map<String, Object> eventFields, Long deadLetterId) {
+    }
+
+    /**
+     * End-of-job Redis work in ONE pipelined round trip: optional DLQ push, ack the
+     * processing-list entry, refresh the registry and publish the lifecycle event.
+     */
+    public void complete(String workerId, String rawId, Map<String, String> registryFields, Duration ttl, Outcome outcome) {
+        String event = outcome == null ? null : toJson(outcome.eventType(), outcome.eventFields());
+        redis.executePipelined(new SessionCallback<Object>() {
+            @Override
+            @SuppressWarnings("unchecked")
+            public <K, V> Object execute(RedisOperations<K, V> operations) {
+                RedisOperations<String, String> ops = (RedisOperations<String, String>) operations;
+                if (outcome != null && outcome.deadLetterId() != null) {
+                    ops.opsForList().leftPush(QueueKeys.DLQ, Long.toString(outcome.deadLetterId()));
+                }
+                ops.opsForList().remove(processingKey(workerId), 1, rawId);
+                ops.opsForHash().putAll(registryKey(workerId), registryFields);
+                ops.expire(registryKey(workerId), ttl);
+                if (event != null) ops.convertAndSend(QueueKeys.EVENTS_CHANNEL, event);
+                return null;
+            }
+        });
+    }
+
     // ---- liveness registry ------------------------------------------------------------
 
+    /** HSET + EXPIRE pipelined into one round trip. */
     public void register(String workerId, Map<String, String> fields, Duration ttl) {
         String key = registryKey(workerId);
-        redis.opsForHash().putAll(key, fields);
-        redis.expire(key, ttl);
+        redis.executePipelined(new SessionCallback<Object>() {
+            @Override
+            @SuppressWarnings("unchecked")
+            public <K, V> Object execute(RedisOperations<K, V> operations) {
+                RedisOperations<String, String> ops = (RedisOperations<String, String>) operations;
+                ops.opsForHash().putAll(key, fields);
+                ops.expire(key, ttl);
+                return null;
+            }
+        });
     }
 
     public void unregister(String workerId) {
@@ -135,12 +169,16 @@ public class RedisJobQueue {
     // ---- events ----------------------------------------------------------------------
 
     public void publish(String type, Map<String, Object> fields) {
+        redis.convertAndSend(QueueKeys.EVENTS_CHANNEL, toJson(type, fields));
+    }
+
+    private String toJson(String type, Map<String, Object> fields) {
         Map<String, Object> event = new LinkedHashMap<>();
         event.put("type", type);
         event.put("ts", System.currentTimeMillis());
         event.putAll(fields);
         try {
-            redis.convertAndSend(QueueKeys.EVENTS_CHANNEL, mapper.writeValueAsString(event));
+            return mapper.writeValueAsString(event);
         } catch (JsonProcessingException e) {
             throw new IllegalStateException(e);
         }

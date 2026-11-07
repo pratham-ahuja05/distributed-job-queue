@@ -1,0 +1,19 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: api-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["api-service:8080"]
+
+  # Worker replicas share one Compose service name; DNS returns one A record per replica,
+  # so `docker compose up --scale worker=N` is picked up without editing this file.
+  - job_name: worker
+    metrics_path: /actuator/prometheus
+    dns_sd_configs:
+      - names: ["worker"]
+        type: A
+        port: 8081
+        refresh_interval: 10s

@@ -1,59 +1,121 @@
+# Full stack: Postgres, Redis, API, 2 worker replicas (4 threads each = 8 concurrent workers),
+# Prometheus, Grafana and the React dashboard behind nginx.
+#
+#   docker compose up -d --build        -> http://localhost:3000  (dashboard, /api, /grafana)
+#   docker compose up -d --scale worker=3   (12 worker threads)
+#
+# For the public demo, layer docker-compose.prod.yml on top (see DEPLOY.md).
+
+x-db-env: &db-env
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/jobqueue
+  SPRING_DATASOURCE_USERNAME: postgres
+  SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-password}
+  SPRING_DATA_REDIS_HOST: redis
+
 services:
-  # --- INFRASTRUCTURE (Postgres & Redis) ---
   postgres:
-    image: postgres:15
-    container_name: jobqueue-postgres
+    image: postgres:15-alpine
     environment:
-      - POSTGRES_DB=jobqueue
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password # Ensure this matches the apps below!
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: jobqueue
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d jobqueue"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
 
   redis:
-    image: redis:7
-    container_name: jobqueue-redis
-    ports:
-      - "6379:6379"
+    image: redis:7-alpine
+    # AOF so queued IDs survive a Redis restart (Postgres stays the source of truth either way)
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec", "--maxmemory", "128mb"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
 
-  # --- YOUR APPS (API & WORKERS) ---
   api-service:
     build: ./api-service
-    container_name: api-service
+    environment:
+      <<: *db-env
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health/readiness | grep -q UP"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+    mem_limit: 384m
+    restart: unless-stopped
+
+  worker:
+    build: ./worker-service
+    environment:
+      <<: *db-env
+      WORKER_CONCURRENCY: 4
+      WORKER_CHAOS_ENABLED: "true"
+    depends_on:
+      # Flyway in api-service must have created the schema first
+      api-service: { condition: service_healthy }
+    deploy:
+      replicas: 2
+    mem_limit: 320m
+    # brings a crashed worker (chaos button / kill -9) back automatically
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=2d
+      - --web.enable-lifecycle
+    volumes:
+      - ./ops/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     ports:
-      - "8080:8080"
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/jobqueue
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=password
-      - SPRING_JPA_DATABASE_PLATFORM=org.hibernate.dialect.PostgreSQLDialect
-      - SPRING_DATA_REDIS_HOST=redis
-    depends_on:
-      - postgres
-      - redis
+      - "9090:9090"
+    mem_limit: 256m
+    restart: unless-stopped
 
-  worker-1:
-    build: ./worker-service
-    container_name: worker-1
+  grafana:
+    image: grafana/grafana-oss:11.2.0
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/jobqueue
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=password
-      - SPRING_JPA_DATABASE_PLATFORM=org.hibernate.dialect.PostgreSQLDialect
-      - SPRING_DATA_REDIS_HOST=redis
+      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s/grafana/"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_DISABLE_LOGIN_FORM: "false"
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/job-queue.json
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_SECURITY_ALLOW_EMBEDDING: "true"
+    volumes:
+      - ./ops/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./ops/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
-      - postgres
-      - redis
+      - prometheus
+    mem_limit: 256m
+    restart: unless-stopped
 
-  worker-2:
-    build: ./worker-service
-    container_name: worker-2
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/jobqueue
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=password
-      - SPRING_JPA_DATABASE_PLATFORM=org.hibernate.dialect.PostgreSQLDialect
-      - SPRING_DATA_REDIS_HOST=redis
+  dashboard:
+    build: ./dashboard
+    ports:
+      - "${DASHBOARD_PORT:-3000}:80"
     depends_on:
-      - postgres
-      - redis
+      api-service: { condition: service_healthy }
+      grafana: { condition: service_started }
+    mem_limit: 64m
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:

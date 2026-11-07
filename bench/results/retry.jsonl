@@ -1,0 +1,46 @@
+{
+  "run": "retry-max0",
+  "jobs": 3000,
+  "succeeded": 2097,
+  "deadLettered": 903,
+  "dlqRatePct": 30.1,
+  "throughputPerSec": 195.1,
+  "wallSeconds": 10.75,
+  "p50LatencyMs": 5370.7,
+  "p95LatencyMs": 10106.3,
+  "p99LatencyMs": 10566.1,
+  "p50QueueWaitMs": 5323.4,
+  "p95QueueWaitMs": 10109.6,
+  "avgAttempts": 1,
+  "reExecutions": 0,
+  "recovered": 0,
+  "config": {
+    "durationMs": 20,
+    "failRate": 0.3,
+    "maxRetries": 0,
+    "rate": null
+  }
+}
+{
+  "run": "retry-max3",
+  "jobs": 3000,
+  "succeeded": 2968,
+  "deadLettered": 32,
+  "dlqRatePct": 1.07,
+  "throughputPerSec": 114.4,
+  "wallSeconds": 25.94,
+  "p50LatencyMs": 7738.7,
+  "p95LatencyMs": 14437.4,
+  "p99LatencyMs": 18024.4,
+  "p50QueueWaitMs": 7766.2,
+  "p95QueueWaitMs": 14720.6,
+  "avgAttempts": 1.437,
+  "reExecutions": 0,
+  "recovered": 0,
+  "config": {
+    "durationMs": 20,
+    "failRate": 0.3,
+    "maxRetries": 3,
+    "rate": null
+  }
+}

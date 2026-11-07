@@ -2,6 +2,7 @@ package com.pratham.workerservice.service;
 
 import com.pratham.workerservice.config.WorkerProperties;
 import com.pratham.workerservice.queue.RedisJobQueue;
+import com.pratham.workerservice.queue.RedisJobQueue.Outcome;
 import com.pratham.workerservice.queue.WeightedPriorityScheduler;
 import com.pratham.workerservice.store.JobStore;
 import com.pratham.workerservice.store.JobStore.ClaimedJob;
@@ -87,18 +88,19 @@ public class JobProcessor {
         queue.register(workerId, slot.toFields(), Duration.ofSeconds(props.registryTtlSeconds()));
         recordQueueWait(job);
 
-        boolean succeeded = false;
+        Outcome result = null;
         Timer.Sample sample = Timer.start(meters);
         try {
             executor.execute(job);
-            succeeded = onSuccess(job, workerId);
+            result = onSuccess(job, workerId);
         } catch (InterruptedException e) {
-            onFailure(job, workerId, "interrupted during shutdown");
+            result = onFailure(job, workerId, "interrupted during shutdown");
             Thread.currentThread().interrupt();
             throw e;
         } catch (Exception e) {
-            onFailure(job, workerId, e.getMessage());
+            result = onFailure(job, workerId, e.getMessage());
         } finally {
+            boolean succeeded = result != null && "SUCCESS".equals(result.eventType());
             sample.stop(Timer.builder("job_execution")
                     .description("Time spent executing a job")
                     .tag("priority", priorityName(job.priority()))
@@ -106,18 +108,18 @@ public class JobProcessor {
                     .publishPercentileHistogram()
                     .register(meters));
             inFlight.remove(id);
-            queue.ack(workerId, raw);
             slot.idle(succeeded);
-            queue.register(workerId, slot.toFields(), Duration.ofSeconds(props.registryTtlSeconds()));
+            // Outcome is committed in Postgres; ack + registry + event (+ DLQ push) in one round trip.
+            queue.complete(workerId, raw, slot.toFields(), Duration.ofSeconds(props.registryTtlSeconds()), result);
         }
         return true;
     }
 
-    private boolean onSuccess(ClaimedJob job, String workerId) {
+    private Outcome onSuccess(ClaimedJob job, String workerId) {
         Optional<Long> latency = store.markSuccess(job.id(), workerId);
         if (latency.isEmpty()) {
             fenced(job, workerId);
-            return false;
+            return null;
         }
         outcome(job, "success");
         Timer.builder("job_end_to_end")
@@ -126,33 +128,30 @@ public class JobProcessor {
                 .publishPercentileHistogram()
                 .register(meters)
                 .record(Duration.ofMillis(latency.get()));
-        queue.publish("SUCCESS", Map.of("jobId", job.id(), "priority", job.priority(), "workerId", workerId,
-                "attempt", job.attempts(), "latencyMs", latency.get()));
-        return true;
+        return new Outcome("SUCCESS", Map.of("jobId", job.id(), "priority", job.priority(), "workerId", workerId,
+                "attempt", job.attempts(), "latencyMs", latency.get()), null);
     }
 
-    private void onFailure(ClaimedJob job, String workerId, String error) {
+    private Outcome onFailure(ClaimedJob job, String workerId, String error) {
         String message = error == null ? "unknown error" : error;
         if (job.retryCount() < job.maxRetries()) {
             int retryNumber = job.retryCount() + 1;
             long delay = backoff.delayFor(retryNumber);
             if (!store.markRetry(job.id(), workerId, delay, message)) {
                 fenced(job, workerId);
-                return;
+                return null;
             }
             outcome(job, "retry");
-            queue.publish("RETRY", Map.of("jobId", job.id(), "priority", job.priority(), "workerId", workerId,
-                    "attempt", job.attempts(), "retry", retryNumber, "delayMs", delay, "error", message));
-        } else {
-            if (!store.markDead(job.id(), workerId, message)) {
-                fenced(job, workerId);
-                return;
-            }
-            queue.pushDeadLetter(job.id());
-            outcome(job, "dlq");
-            queue.publish("DLQ", Map.of("jobId", job.id(), "priority", job.priority(), "workerId", workerId,
-                    "attempt", job.attempts(), "error", message));
+            return new Outcome("RETRY", Map.of("jobId", job.id(), "priority", job.priority(), "workerId", workerId,
+                    "attempt", job.attempts(), "retry", retryNumber, "delayMs", delay, "error", message), null);
         }
+        if (!store.markDead(job.id(), workerId, message)) {
+            fenced(job, workerId);
+            return null;
+        }
+        outcome(job, "dlq");
+        return new Outcome("DLQ", Map.of("jobId", job.id(), "priority", job.priority(), "workerId", workerId,
+                "attempt", job.attempts(), "error", message), job.id());
     }
 
     private void fenced(ClaimedJob job, String workerId) {
