@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="420" viewBox="0 0 1000 420">
+  <style>
+    .box { fill:#f8fafc; stroke:#2b6cb0; stroke-width:2; rx:6; }
+    .label { font-family: Arial, sans-serif; font-size:14px; fill:#0f172a; }
+    .small { font-size:12px; fill:#334155 }
+    .arrow { stroke:#475569; stroke-width:2; fill:none; marker-end:url(#arrowhead); }
+  </style>
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#475569" />
+    </marker>
+  </defs>
+
+  <!-- Client -->
+  <rect x="20" y="30" width="160" height="60" class="box"/>
+  <text x="100" y="60" text-anchor="middle" class="label">Client / Producer</text>
+
+  <!-- API -->
+  <rect x="240" y="20" width="180" height="80" class="box"/>
+  <text x="330" y="50" text-anchor="middle" class="label">API Service</text>
+  <text x="330" y="68" text-anchor="middle" class="small">(api-service)</text>
+
+  <!-- Postgres -->
+  <rect x="520" y="20" width="140" height="60" class="box"/>
+  <text x="590" y="50" text-anchor="middle" class="label">PostgreSQL</text>
+
+  <!-- Redis -->
+  <rect x="520" y="110" width="140" height="60" class="box"/>
+  <text x="590" y="140" text-anchor="middle" class="label">Redis<br/><tspan class="small">(priority queues)</tspan></text>
+
+  <!-- Workers -->
+  <rect x="720" y="20" width="240" height="150" class="box"/>
+  <text x="840" y="44" text-anchor="middle" class="label">Worker Pool</text>
+  <text x="840" y="62" text-anchor="middle" class="small">(worker-service)</text>
+  <circle cx="780" cy="95" r="12" fill="#ffffff" stroke="#1e293b"/>
+  <text x="780" y="99" text-anchor="middle" class="small">W1</text>
+  <circle cx="840" cy="95" r="12" fill="#ffffff" stroke="#1e293b"/>
+  <text x="840" y="99" text-anchor="middle" class="small">W2</text>
+  <circle cx="900" cy="95" r="12" fill="#ffffff" stroke="#1e293b"/>
+  <text x="900" y="99" text-anchor="middle" class="small">Wn</text>
+
+  <!-- DLQ -->
+  <rect x="720" y="190" width="140" height="60" class="box"/>
+  <text x="790" y="220" text-anchor="middle" class="label">Dead Letter Queue</text>
+
+  <!-- Monitor -->
+  <rect x="520" y="200" width="140" height="60" class="box"/>
+  <text x="590" y="230" text-anchor="middle" class="label">Recovery / Monitor</text>
+
+  <!-- Arrows -->
+  <path d="M180 60 L240 60" class="arrow" />
+  <path d="M420 60 L520 60" class="arrow" />
+  <path d="M420 75 L520 140" class="arrow" />
+  <path d="M660 50 L720 50" class="arrow" />
+  <path d="M660 140 L720 95" class="arrow" />
+  <path d="M860 130 L860 190" class="arrow" />
+  <path d="M590 240 L590 190" class="arrow" />
+
+  <!-- Notes -->
+  <text x="330" y="18" text-anchor="middle" class="small">API persists job metadata to Postgres and enqueues job in Redis</text>
+  <text x="840" y="170" text-anchor="middle" class="small">Workers poll Redis, lock job in Postgres (SELECT FOR UPDATE), process, then update status</text>
+</svg>
