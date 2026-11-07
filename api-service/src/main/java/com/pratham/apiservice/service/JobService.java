@@ -18,9 +18,13 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.jdbc.core.JdbcTemplate;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -30,18 +34,18 @@ public class JobService {
 
     private final JobRepository repository;
     private final JobQueue queue;
-    private final TransactionTemplate tx;
+    private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
     private final AppProperties props;
     private final EventPublisher events;
     private final MeterRegistry meters;
 
-    public JobService(JobRepository repository, JobQueue queue, TransactionTemplate tx,
+    public JobService(JobRepository repository, JobQueue queue, JdbcTemplate jdbc,
                       ObjectMapper mapper, AppProperties props, EventPublisher events,
                       MeterRegistry meters) {
         this.repository = repository;
         this.queue = queue;
-        this.tx = tx;
+        this.jdbc = jdbc;
         this.mapper = mapper;
         this.props = props;
         this.events = events;
@@ -80,23 +84,38 @@ public class JobService {
         String type = req.type() == null || req.type().isBlank() ? "demo" : req.type();
         int maxRetries = req.maxRetries() == null ? 3 : req.maxRetries();
 
-        List<Job> jobs = new ArrayList<>(req.count());
-        for (int i = 0; i < req.count(); i++) {
-            Priority p = req.priority() != null ? req.priority() : randomMixedPriority();
-            jobs.add(Job.builder().type(type).payload(payload).status(JobStatus.QUEUED)
-                    .priority(p.level()).maxRetries(maxRetries).build());
+        Integer[] priorities = new Integer[req.count()];
+        for (int i = 0; i < priorities.length; i++) {
+            priorities[i] = (req.priority() != null ? req.priority() : randomMixedPriority()).level();
         }
 
-        List<Job> saved = tx.execute(status -> repository.saveAll(jobs));
+        // One multi-row INSERT (Hibernate can't batch IDENTITY inserts): ~1 round trip per batch.
         Map<Priority, List<Long>> byPriority = new EnumMap<>(Priority.class);
-        for (Job j : Objects.requireNonNull(saved)) {
-            byPriority.computeIfAbsent(Priority.ofLevel(j.getPriority()), k -> new ArrayList<>()).add(j.getId());
-        }
+        long[] range = {Long.MAX_VALUE, Long.MIN_VALUE};
+        jdbc.query(con -> {
+            var ps = con.prepareStatement("""
+                    INSERT INTO jobs (type, payload, status, priority, max_retries)
+                    SELECT ?, ?, 'QUEUED', p, ? FROM unnest(?::int[]) AS p
+                    RETURNING id, priority
+                    """);
+            ps.setString(1, type);
+            ps.setString(2, payload);
+            ps.setInt(3, maxRetries);
+            ps.setArray(4, con.createArrayOf("integer", priorities));
+            return ps;
+        }, rs -> {
+            long id = rs.getLong("id");
+            range[0] = Math.min(range[0], id);
+            range[1] = Math.max(range[1], id);
+            byPriority.computeIfAbsent(Priority.ofLevel(rs.getInt("priority")), k -> new ArrayList<>()).add(id);
+        });
+
+        // Auto-committed above, so every ID we push is already visible to workers.
         queue.enqueueAll(byPriority);
         byPriority.forEach((p, ids) -> countSubmitted(p, ids.size()));
-        events.publish("SUBMITTED", Map.of("count", saved.size(), "jobType", type));
+        events.publish("SUBMITTED", Map.of("count", priorities.length, "jobType", type));
 
-        return new BatchResponse(saved.size(), saved.get(0).getId(), saved.get(saved.size() - 1).getId());
+        return new BatchResponse(priorities.length, range[0], range[1]);
     }
 
     public Job get(long id) {
