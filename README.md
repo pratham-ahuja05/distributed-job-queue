@@ -29,7 +29,7 @@ Compose stack on a laptop (Docker Desktop, Windows 11). Raw output is in [`bench
 | Horizontal scaling | 63.8 → 129.7 → 260.9 jobs/s at 4 → 8 → 16 worker threads (**linear, 4.09× at 4×**) | `loadtest.mjs`, 50 ms jobs, `--scale worker=1/2/4` |
 | Latency below saturation | p50 108 ms / **p95 162 ms** end-to-end for 50 ms jobs at a steady 100 jobs/s | `loadtest.mjs --rate 100` |
 | Peak throughput (no-op jobs) | ~500 jobs/s durable; 1,216 jobs/s with `synchronous_commit=off` | bottleneck is the WAL fsync per commit; durability kept on by design |
-| Tests | 51 tests (JUnit 5, Mockito, Testcontainers); **91.5% / 96.5% line coverage** (worker / API), 85% gate in CI | `./mvnw verify` |
+| Tests | 52 tests (JUnit 5, Mockito, Testcontainers); **91.5% / 96.5% line coverage** (worker / API), 85% gate in CI | `./mvnw verify` |
 
 ## Architecture
 
