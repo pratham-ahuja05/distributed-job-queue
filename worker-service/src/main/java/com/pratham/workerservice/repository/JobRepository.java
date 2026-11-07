@@ -14,12 +14,12 @@ import java.util.Optional;
 
 public interface JobRepository extends JpaRepository<Job, Long> {
 
-    // 🔥 RECOVERY: stuck jobs
+    //  RECOVERY: stuck jobs
     @Query("SELECT j FROM Job j WHERE j.status = :status AND j.updatedAt < :threshold")
     List<Job> findStuckJobs(@Param("status") JobStatus status,
                             @Param("threshold") LocalDateTime threshold);
 
-    // 🔥 RETRY
+    //  RETRY
     List<Job> findByStatusAndNextRetryAtBefore(
             JobStatus status,
             LocalDateTime time
@@ -27,7 +27,7 @@ public interface JobRepository extends JpaRepository<Job, Long> {
 
     List<Job> findByStatus(JobStatus status);
 
-    // 💣 CRITICAL: MULTI-WORKER LOCK
+    //  CRITICAL: MULTI-WORKER LOCK
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT j FROM Job j WHERE j.id = :id")
     Optional<Job> findByIdForUpdate(@Param("id") Long id);
