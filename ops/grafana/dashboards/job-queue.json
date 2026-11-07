@@ -326,7 +326,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(worker_threads_total)",
+          "expr": "sum(worker_threads_configured)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"

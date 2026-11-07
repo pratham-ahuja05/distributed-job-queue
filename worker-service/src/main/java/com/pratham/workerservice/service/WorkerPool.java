@@ -45,7 +45,7 @@ public class WorkerPool implements SmartLifecycle {
             slots.add(new WorkerSlot(props.instanceId() + "-t" + i, props.instanceId()));
         }
         Gauge.builder("worker_threads_busy", processor, p -> p.inFlight().size()).register(meters);
-        Gauge.builder("worker_threads_total", slots, List::size).register(meters);
+        Gauge.builder("worker_threads_configured", slots, List::size).register(meters);
     }
 
     public List<WorkerSlot> slots() {
