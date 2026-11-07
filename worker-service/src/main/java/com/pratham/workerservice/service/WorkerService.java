@@ -74,7 +74,7 @@ public class WorkerService {
         }
     }
 
-    private void handleJobFailure(Job job, String jobId) {
+    public void handleJobFailure(Job job, String jobId) {
         System.out.println("Job failed: " + jobId);
 
         if (job.getRetryCount() < job.getMaxRetries()) {
