@@ -5,6 +5,7 @@ import { EventFeed, QueueBars, StatTiles, WorkerGrid } from "./components/Panels
 import { Controls } from "./components/Controls";
 import { JobsTable } from "./components/JobsTable";
 import { SimpleView } from "./simple/SimpleView";
+import { DEMO } from "./api";
 
 type View = "simple" | "technical";
 
@@ -38,7 +39,7 @@ export default function App() {
     if (snapshot) setTick((t) => t + 1);
   }, [snapshot]);
 
-  const connLabel = { connecting: "Connecting…", live: "Live", polling: "Live (polling)", offline: "Offline" }[connection];
+  const connLabel = { connecting: "Connecting…", live: "Live", polling: "Live (polling)", offline: "Offline", demo: "Demo · runs in your browser" }[connection];
 
   return (
     <div className="app">
@@ -55,10 +56,18 @@ export default function App() {
             <button aria-pressed={view === "technical"} onClick={() => choose("technical")}>Technical</button>
           </div>
           <span className={`conn ${connection}`}><span className="dot" />{connLabel}</span>
-          <a className="link-btn" href="/grafana/d/job-queue" target="_blank" rel="noreferrer">Grafana ↗</a>
+          {!DEMO && <a className="link-btn" href="/grafana/d/job-queue" target="_blank" rel="noreferrer">Grafana ↗</a>}
           {REPO_URL && <a className="link-btn" href={REPO_URL} target="_blank" rel="noreferrer">Source ↗</a>}
         </div>
       </header>
+
+      {DEMO && (
+        <div className="demo-banner" role="note">
+          <b>Demo mode.</b> This page simulates the queue in your browser using the same rules as the real
+          system (priority lines, 8 workers, retries with backoff, crash recovery). The real version runs
+          Spring Boot, Redis and PostgreSQL with Docker{REPO_URL ? <> - <a href={REPO_URL} target="_blank" rel="noreferrer">see the source</a></> : null}.
+        </div>
+      )}
 
       {!snapshot ? (
         <div className="card empty">
@@ -108,7 +117,7 @@ export default function App() {
       </section>}
 
       <footer>
-        Demo data is cleared periodically. Write endpoints are rate-limited per visitor.
+        {DEMO ? "Simulated in your browser. Nothing you do here affects anyone else." : "Demo data is cleared periodically. Write endpoints are rate-limited per visitor."}
       </footer>
     </div>
   );

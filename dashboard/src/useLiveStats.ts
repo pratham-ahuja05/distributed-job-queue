@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { api } from "./api";
+import { api, DEMO } from "./api";
+import { simulator } from "./demo/simulator";
 import type { JobEvent, Snapshot } from "./types";
 
-export type Connection = "connecting" | "live" | "polling" | "offline";
+export type Connection = "connecting" | "live" | "polling" | "offline" | "demo";
 
 const MAX_EVENTS = 60;
 
@@ -27,6 +28,14 @@ export function useLiveStats() {
         setEvents((prev) => [...snap.events.slice().reverse(), ...prev].slice(0, MAX_EVENTS));
       }
     };
+
+    if (DEMO) {
+      setConnection("demo");
+      const unsubscribe = simulator.subscribe(apply);
+      return () => {
+        unsubscribe();
+      };
+    }
 
     const startPolling = () => {
       if (pollTimer.current !== null) return;
