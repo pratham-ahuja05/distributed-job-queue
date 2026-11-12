@@ -14,8 +14,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   stats: () => request<Snapshot>("/api/stats"),
-  submit: (type: string, priority: Priority, maxRetries: number) =>
-    request<Job>("/api/jobs", { method: "POST", body: JSON.stringify({ type, priority, maxRetries }) }),
+  submit: (type: string, priority: Priority, maxRetries: number, payload?: Record<string, unknown>) =>
+    request<Job>("/api/jobs", { method: "POST", body: JSON.stringify({ type, priority, maxRetries, payload }) }),
   burst: (count: number, durationMs: number) =>
     request<{ submitted: number }>("/api/jobs/batch", {
       method: "POST",

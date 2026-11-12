@@ -4,12 +4,35 @@ import { ThroughputChart } from "./components/ThroughputChart";
 import { EventFeed, QueueBars, StatTiles, WorkerGrid } from "./components/Panels";
 import { Controls } from "./components/Controls";
 import { JobsTable } from "./components/JobsTable";
+import { SimpleView } from "./simple/SimpleView";
+
+type View = "simple" | "technical";
+
+function initialView(): View {
+  try {
+    const fromUrl = new URLSearchParams(window.location.search).get("view");
+    if (fromUrl === "simple" || fromUrl === "technical") return fromUrl;
+    return localStorage.getItem("jq-view") === "technical" ? "technical" : "simple";
+  } catch {
+    return "simple";
+  }
+}
 
 const REPO_URL = import.meta.env.VITE_REPO_URL as string | undefined;
 
 export default function App() {
   const { snapshot, events, connection } = useLiveStats();
   const [tick, setTick] = useState(0);
+  const [view, setView] = useState<View>(initialView);
+
+  const choose = (v: View) => {
+    setView(v);
+    try {
+      localStorage.setItem("jq-view", v);
+    } catch {
+      /* storage unavailable: the choice just won't persist */
+    }
+  };
 
   useEffect(() => {
     if (snapshot) setTick((t) => t + 1);
@@ -22,9 +45,15 @@ export default function App() {
       <header className="header">
         <div className="brand">
           <h1>Distributed Job Queue</h1>
-          <p>Redis priority dispatch · Postgres state · crash-safe workers · retries with jitter · dead-letter queue</p>
+          <p>{view === "simple"
+            ? "A live look at a system that hands out work to many computers and never loses a task."
+            : "Redis priority dispatch · Postgres state · crash-safe workers · retries with jitter · dead-letter queue"}</p>
         </div>
         <div className="header-actions">
+          <div className="view-switch" role="group" aria-label="View">
+            <button aria-pressed={view === "simple"} onClick={() => choose("simple")}>Simple</button>
+            <button aria-pressed={view === "technical"} onClick={() => choose("technical")}>Technical</button>
+          </div>
           <span className={`conn ${connection}`}><span className="dot" />{connLabel}</span>
           <a className="link-btn" href="/grafana/d/job-queue" target="_blank" rel="noreferrer">Grafana ↗</a>
           {REPO_URL && <a className="link-btn" href={REPO_URL} target="_blank" rel="noreferrer">Source ↗</a>}
@@ -35,6 +64,8 @@ export default function App() {
         <div className="card empty">
           {connection === "offline" ? "Can't reach the API. Is the stack running?" : "Connecting to the live stream…"}
         </div>
+      ) : view === "simple" ? (
+        <SimpleView s={snapshot} events={events} />
       ) : (
         <>
           <StatTiles s={snapshot} />
@@ -60,7 +91,7 @@ export default function App() {
         </>
       )}
 
-      <section className="card how">
+      {view === "technical" && <section className="card how">
         <h2>How it works</h2>
         <p className="sub">Redis moves job IDs fast; Postgres decides what actually happened.</p>
         <div className="flow">
@@ -74,7 +105,7 @@ export default function App() {
         <div className="stack">
           {["Java 17", "Spring Boot 3.5", "PostgreSQL 15", "Redis 7", "React", "Prometheus", "Grafana", "Docker Compose", "GitHub Actions"].map((t) => <span key={t}>{t}</span>)}
         </div>
-      </section>
+      </section>}
 
       <footer>
         Demo data is cleared periodically. Write endpoints are rate-limited per visitor.

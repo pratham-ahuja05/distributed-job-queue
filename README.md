@@ -15,10 +15,10 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/dashboard-dark.png" alt="Live dashboard: 8 worker threads busy across 2 containers, throughput chart, Redis queue depths, live event feed and jobs table" width="100%"/>
+  <img src="docs/images/simple-view.png" alt="Simple view: three priority lines of waiting tasks, two computers with four workers each, results (done, will retry, gave up), a live diagram of a task's journey and a plain-English event feed" width="100%"/>
 </p>
 
-<p align="center"><i>The live dashboard during a run: 8 workers across 2 containers, 15% injected failures, one worker crashed mid-run. Every number is real.</i></p>
+<p align="center"><i>The <b>Simple view</b>: three lines of waiting tasks, 8 workers picking them up, and a live map of each task's journey. Built so anyone can follow what's happening.</i></p>
 
 ---
 
@@ -118,6 +118,13 @@ docker compose up -d --build
 | Prometheus | http://localhost:9090 |
 
 Only Docker is needed: Maven and Node run inside the image builds.
+
+The dashboard opens in the **Simple view**: plain language, no jargon. Switch to **Technical** (top right)
+for throughput charts, per-thread worker state, the raw event stream and the jobs table.
+
+<p align="center">
+  <img src="docs/images/dashboard-dark.png" alt="Technical view: throughput chart, Redis queue depths, per-thread workers, event feed and jobs table" width="100%"/>
+</p>
 
 **Things to try on the dashboard:**
 - **Send a burst** and watch the queues drain and the workers light up.
